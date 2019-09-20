@@ -22,6 +22,22 @@ using namespace std;
 int main(int argc, const char* argv[])
 {
 
+	// String imageName( "HappyFish.jpg" ); // by default
+	//
+	// Mat image;
+	// image = imread( "../data/HappyFish.jpeg", IMREAD_GRAYSCALE ); // Read the file
+	// if( image.empty() )                      // Check for invalid input
+	// {
+	// 		cout <<  "Could not open or find the image" << std::endl ;
+	// 		return -1;
+	// }
+	// namedWindow( "Display window", WINDOW_AUTOSIZE ); // Create a window for display.
+	namedWindow( "webcam", WINDOW_AUTOSIZE ); // Create a window for display.
+	// imshow( "Display window", image );                // Show our image inside it.
+	// waitKey(0); // Wait for a keystroke in the window
+	//
+
+
 	if (argc > 1) {
 		VideoCapture cap(argv[1]); // open the default camera
 		cap.set(cv::CAP_PROP_FRAME_WIDTH, 320);

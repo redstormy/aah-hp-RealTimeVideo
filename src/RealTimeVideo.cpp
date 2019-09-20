@@ -21,10 +21,12 @@ RealTimeVideo::RealTimeVideo(int buffLen, int sampleLen, vector<float> freqs, Vi
 : buffLen(buffLen), sampleLen(sampleLen), freqs(freqs), capture(capture)
 {
 	frameRate = capture->get(cv::CAP_PROP_FPS);
-	frameBuffer.resize(buffLen);
+	for (int i = 0; i < buffLen; i++) {
+		frameBuffer.push_back(Mat(240, 320, CV_8U, cv::Scalar::all(0)));
+	}
 
 	for (int i = 0; i < freqs.size(); i++) {
-		processedFrames.push_back(Mat(240, 320, 0, cv::Scalar::all(0)));
+		processedFrames.push_back(Mat(240, 320, CV_8U, cv::Scalar::all(0)));
 	}
 	centroids = vector<Point>(freqs.size(), Point(0, 0));
 
@@ -53,14 +55,16 @@ void RealTimeVideo::producer() {
 
 	cerr << "\nStarting Producer Thread\n";
 
+	waitKey(500);
+
 	pos = 0;
 	Mat f, gray;
 
 	while (1) {
 
 		capture->read(f);
-		
-		
+
+
 		cvtColor(f, gray, COLOR_BGR2GRAY);
 		frame = gray.clone();
 		putFrameInBuffer(gray);
@@ -72,7 +76,7 @@ void RealTimeVideo::producer() {
 void RealTimeVideo::showFrameOutput() {
 
 	imshow("Webcam", frame);
-	//imshow("Processed Output", processedFrame);
+
 
 }
 
@@ -80,18 +84,18 @@ void RealTimeVideo::showProcessedOutput() {
 
 	for (int i = 0; i < freqs.size(); i++) {
 		std::stringstream stream;
-		stream << std::fixed << std::setprecision(4) << freqs[i];
+		stream << std::fixed << std::setprecision(2) << freqs[i];
 		std::string s = stream.str();
 		imshow("Processed Output " + s + " Hz", processedFrames[i]);
 	}
-		
-	
+
+
 
 }
 void RealTimeVideo::UI() {
 
 	cerr << "\nStarting UI Thread\n";
-	waitKey(5000);
+	waitKey(1000);
 	while (true) {
 
 		if (waitKey(50) >= 0) break;
@@ -126,7 +130,7 @@ void RealTimeVideo::processor() {
 
 	cerr << "\nStarting Processor Thread\n";
 	vector<Mat> sample;
-	waitKey(20000);
+	waitKey(1000);
 	while (1) {
 
 		sample = getSample();
@@ -138,20 +142,23 @@ void RealTimeVideo::processor() {
 
 vector<Mat> RealTimeVideo::getSample() {
 
-	int end = pos;
-	int st = pos - sampleLen;
-	if (st < 0) {
-		st += buffLen;
-		//st = 0;
-		vector<Mat> a(frameBuffer.begin() + st, frameBuffer.end());
-		vector<Mat> b(frameBuffer.begin(), frameBuffer.begin() + end);
-		a.insert(a.end(), b.begin(), b.end());
-		return a;
+	if (frameBuffer.size()> sampleLen){
+		int end = pos;
+		int st = pos - sampleLen;
+		if (st < 0) {
+			st += buffLen;
+			//st = 0;
+			vector<Mat> a(frameBuffer.begin() + st, frameBuffer.end());
+			vector<Mat> b(frameBuffer.begin(), frameBuffer.begin() + end);
+			a.insert(a.end(), b.begin(), b.end());
+			return a;
+		}
+		else {
+			vector<Mat> ret(frameBuffer.begin() + st, frameBuffer.begin() + end);
+			return ret;
+		}
 	}
-	else {
-		vector<Mat> ret(frameBuffer.begin() + st, frameBuffer.begin() + end);
-		return ret;
-	}
+	return {Mat(240, 320, CV_8U, cv::Scalar::all(0))};
 
 }
 
@@ -163,11 +170,14 @@ Mat RealTimeVideo::reshapeSample(vector<Mat> sample) {
 }
 
 void RealTimeVideo::processSample(vector<Mat> sample) {
-	if (sample.size() < sampleLen)
+	if (sample.size() < sampleLen) {
+		waitKey(100);
 		return;
+	}
+
 
 	int64 e1 = getTickCount();
-	
+
 	//vector<Mat> pFrames(freqs.size(), Mat(240, 320, CV_32FC1, cv::Scalar::all(0)));
 	vector<Mat> pFrames;
 	for (int i = 0; i < freqs.size(); i++) {
@@ -197,7 +207,7 @@ void RealTimeVideo::processSample(vector<Mat> sample) {
 			}
 
 
-			//// 1Hz 
+			//// 1Hz
 			//float freq = 1.0;
 			//int n = int(std::round(freq / (frameRate / sampleLen)));
 
@@ -224,7 +234,7 @@ void RealTimeVideo::processSample(vector<Mat> sample) {
 	for (int i = 0; i < freqs.size(); i++) {
 		double min, max;
 		cv::minMaxLoc(pFrames[i], &min, &max);
-		
+
 		pFrames[i] *= 255 / float(max);
 		pFrames[i].convertTo(pFrames[i], CV_8U);
 
@@ -240,7 +250,7 @@ void RealTimeVideo::processSample(vector<Mat> sample) {
 	double time = (e2 - e1) / getTickFrequency();
 
 	cout << "time: " << time << "s" << endl;
-	
+
 	//cout << "Height : " << processedFrame.rows << endl;
 	//cout << "Width: " << processedFrame.cols << endl;
 	//cout << "Width: " << unsigned int(processedFrame.at<uchar>(0,0)) << endl;
